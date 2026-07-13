@@ -29,8 +29,8 @@ export function SuperAdminLoginPage({
               src={brand.logo}
             />
             <div>
-              <h1 className="text-3xl">Super Admin Login</h1>
-              <p className="text-sm">{brand.email}</p>
+              <h1 className="text-3xl">Admin Login</h1>
+              <p className="text-sm">Authorized Super Admin access</p>
             </div>
           </div>
           <form
@@ -53,7 +53,7 @@ export function SuperAdminLoginPage({
             ) : null}
             <Button className="gap-2" type="submit" variant="secondary">
               <LockKeyhole className="h-4 w-4" />
-              Super Login
+              Login to Dashboard
             </Button>
           </form>
         </div>

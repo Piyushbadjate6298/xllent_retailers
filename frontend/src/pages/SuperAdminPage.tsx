@@ -1,269 +1,125 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Boxes,
-  LayoutDashboard,
-  LogOut,
-  PackageCheck,
-  UserCheck
+  Bell, Boxes, ChartNoAxesCombined, Check, ChevronDown, CircleDollarSign, ClipboardList,
+  Download, Eye, FileChartColumn, LayoutDashboard, LogOut, Menu, MoreHorizontal, Package,
+  PackageCheck, Pencil, Plus, Search, Settings, ShieldCheck, ShoppingBag, Trash2, Truck,
+  UserRound, Users, Warehouse, X
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Seo } from "@/components/seo/Seo";
-import { Button } from "@/components/ui/Button";
 import { brand } from "@/config/brand";
-import type { CustomerOrder, OrderStatus } from "@/models/order";
+import type { CustomerOrder } from "@/models/order";
 import type { Product } from "@/models/product";
-import {
-  accountStoreEventName,
-  loadAccounts,
-  loadManagedProducts,
-  loadOrders,
-  orderStoreEventName,
-  saveManagedProducts,
-  updateOrderStatus,
-  type Account
-} from "@/services/localStore";
-import { cn } from "@/utils/cn";
-import { SuperAdminDashboardPage } from "./super-admin/SuperAdminDashboardPage";
+import { loadAccounts, loadManagedProducts, loadOrders, type Account } from "@/services/localStore";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { SuperAdminLoginPage } from "./super-admin/SuperAdminLoginPage";
-import { SuperAdminOrdersPage } from "./super-admin/SuperAdminOrdersPage";
-import { SuperAdminProductsPage } from "./super-admin/SuperAdminProductsPage";
-import { SuperAdminUsersPage } from "./super-admin/SuperAdminUsersPage";
 import {
-  emptyProductForm,
-  type ProductForm,
-  type SuperAdminModule,
-  type SuperAdminPageKey
-} from "./super-admin/types";
+  CategoriesPage as CategoriesSection, DashboardPage as DashboardSection,
+  InventoryPage as InventorySection, NotificationsPage as NotificationsSection,
+  OrdersPage as OrdersSection, ProductsPage as ProductsSection, ProfilePage as ProfileSection,
+  ReportsPage as ReportsSection, RevenuePage as RevenueSection, SettingsPage as SettingsSection,
+  UserManagementPage as UserManagementSection
+} from "./super-admin/pages";
 
-type SuperAdminPageProps = {
-  navigate: (path: string) => void;
-};
+type Props = { navigate: (path: string) => void };
+type Section = "Dashboard" | "User Management" | "Products" | "Categories" | "Orders" | "Inventory" | "Revenue" | "Reports" | "Notifications" | "Settings" | "Profile";
 
-const superAdminModules: SuperAdminModule[] = [
-  { label: "Dashboard", icon: LayoutDashboard },
-  { label: "Users", icon: UserCheck },
-  { label: "Products", icon: Boxes },
-  { label: "Orders", icon: PackageCheck }
+const nav: { label: Section; icon: LucideIcon }[] = [
+  { label: "Dashboard", icon: LayoutDashboard }, { label: "User Management", icon: Users },
+  { label: "Products", icon: ShoppingBag }, { label: "Categories", icon: Boxes },
+  { label: "Orders", icon: ClipboardList }, { label: "Inventory", icon: Warehouse },
+  { label: "Revenue", icon: CircleDollarSign }, { label: "Reports", icon: FileChartColumn },
+  { label: "Notifications", icon: Bell }, { label: "Settings", icon: Settings }, { label: "Profile", icon: UserRound }
+];
+const demoProducts = [
+  { id:"p1", name:"Premium Groundnut Oil", category:"Edible Oil", mrp:2899, stock:184, imageUrl:"/images/groundnut-oil-bottle.png", superStockiestPrice:2320, distributorsPrice:2440, wholesalerPrice:2580 },
+  { id:"p2", name:"Classic Milk Chocolate", category:"Chocolate", mrp:160, stock:42, imageUrl:"/logo.png", superStockiestPrice:118, distributorsPrice:126, wholesalerPrice:138 },
+  { id:"p3", name:"Masala Crunch", category:"Snacks", mrp:80, stock:9, imageUrl:"/logo.png", superStockiestPrice:54, distributorsPrice:59, wholesalerPrice:65 }
+];
+const demoOrders = [
+  { id:"#XLR-1048", customer:"Patel Wholesale", role:"Wholesaler", amount:48620, status:"Pending", date:"12 Jul 2026" },
+  { id:"#XLR-1047", customer:"Shree Distributors", role:"Distributor", amount:72540, status:"Dispatched", date:"12 Jul 2026" },
+  { id:"#XLR-1046", customer:"Krishna Traders", role:"Super Stockist", amount:124800, status:"Delivered", date:"11 Jul 2026" },
+  { id:"#XLR-1045", customer:"Maa Retail Hub", role:"Wholesaler", amount:31990, status:"Packed", date:"11 Jul 2026" }
+];
+const demoUsers = [
+  { name:"Piyush Mehta", role:"Admin", region:"Head Office", status:"Active", date:"10 Jul 2026", mobile:"+91 98765 11001", email:"piyush.mehta@xllent.com", parent:"Super Admin" },
+  { name:"Kavita Joshi", role:"Admin", region:"West Zone", status:"Active", date:"09 Jul 2026", mobile:"+91 98765 11002", email:"kavita.joshi@xllent.com", parent:"Super Admin" },
+  { name:"Rakesh Patel", role:"Super Stockist", region:"Gujarat", status:"Active", date:"08 Jul 2026", mobile:"+91 98765 22001", email:"rakesh.patel@xllent.com", parent:"Piyush Mehta" },
+  { name:"Sanjay Verma", role:"Super Stockist", region:"Maharashtra", status:"Active", date:"07 Jul 2026", mobile:"+91 98765 22002", email:"sanjay.verma@xllent.com", parent:"Kavita Joshi" },
+  { name:"Ankit Sharma", role:"Distributor", region:"Rajasthan", status:"Active", date:"05 Jul 2026", mobile:"+91 98765 33001", email:"ankit.sharma@xllent.com", parent:"Rakesh Patel" },
+  { name:"Farhan Khan", role:"Distributor", region:"Madhya Pradesh", status:"Pending", date:"04 Jul 2026", mobile:"+91 98765 33002", email:"farhan.khan@xllent.com", parent:"Sanjay Verma" },
+  { name:"Mehul Shah", role:"Distributor", region:"Gujarat", status:"Active", date:"03 Jul 2026", mobile:"+91 98765 33003", email:"mehul.shah@xllent.com", parent:"Rakesh Patel" },
+  { name:"Neha Verma", role:"Wholesaler", region:"Maharashtra", status:"Pending", date:"02 Jul 2026", mobile:"+91 98765 44001", email:"neha.verma@xllent.com", parent:"Sanjay Verma" },
+  { name:"Deepak Gupta", role:"Wholesaler", region:"Rajasthan", status:"Active", date:"01 Jul 2026", mobile:"+91 98765 44002", email:"deepak.gupta@xllent.com", parent:"Ankit Sharma" }
 ];
 
-const superAdminCredentials = {
-  email: "superadmin@xllentretailers.com",
-  password: "super123"
-};
+function Status({ value }: { value:string }) {
+  const color = value === "Active" || value === "Delivered" ? "bg-emerald-50 text-emerald-700" : value === "Pending" ? "bg-amber-50 text-amber-700" : value === "Cancelled" || value === "Out of Stock" ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700";
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>{value}</span>;
+}
+function Kpi({ icon:Icon, label, value, note, tint }: { icon:LucideIcon; label:string; value:string; note:string; tint:string }) {
+  return <div className="admin-card p-5"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p><div className="mt-2 text-2xl font-extrabold text-slate-900">{value}</div></div><div className={`rounded-xl p-3 ${tint}`}><Icon className="h-5 w-5" /></div></div><div className="mt-4 text-xs font-semibold text-emerald-600">{note}</div></div>;
+}
+function AreaChart() {
+  const vals=[35,47,41,65,58,79,72,91,83,96,88,112];
+  return <div className="mt-6 flex h-48 items-end gap-2 border-b border-l border-slate-100 pl-2">{vals.map((v,i)=><div className="group relative flex-1" key={i}><div className="w-full rounded-t-md bg-gradient-to-t from-[#e76538] to-[#f5a668] transition hover:opacity-80" style={{height:`${v}px`}}/><span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400">{["J","F","M","A","M","J","J","A","S","O","N","D"][i]}</span></div>)}</div>;
+}
+function Donut() { return <div className="mx-auto mt-7 grid h-40 w-40 place-items-center rounded-full" style={{background:"conic-gradient(#e76538 0 38%, #1f7a65 38% 66%, #e9b949 66% 84%, #334155 84%)"}}><div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center"><span className="text-2xl font-black">₹8.4L<small className="block text-[10px] text-slate-400">TOTAL SALES</small></span></div></div> }
+function TableShell({ children }: { children:React.ReactNode }) { return <div className="overflow-x-auto">{children}</div> }
+function Actions() { return <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><MoreHorizontal className="h-5 w-5"/></button> }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+export function SuperAdminPage({ navigate }: Props) {
+  const [loggedInRole,setLoggedInRole]=useState<string | null>(null); const [loginError,setLoginError]=useState("");
+  const [section,setSection]=useState<Section>("Dashboard"); const [mobile,setMobile]=useState(false);
+  const [profileMenu,setProfileMenu]=useState(false);
+  const [userTab,setUserTab]=useState("All"); const [orderTab,setOrderTab]=useState("Pending");
+  const [showUserForm,setShowUserForm]=useState(false); const [showProductForm,setShowProductForm]=useState(false);
+  const accounts=useMemo<Account[]>(()=>loadAccounts(),[]); const products=useMemo<Product[]>(()=>loadManagedProducts(),[]); const orders=useMemo<CustomerOrder[]>(()=>loadOrders(),[]);
+  const productRows=(products.length?products:demoProducts) as any[]; const revenue=orders.reduce((s,o)=>s+o.total,0)||842650;
+  const select=(s:Section)=>{setSection(s);setMobile(false)};
+  const login=(email:string,password:string)=>{const superAdmin=email.toLowerCase()==="superadmin@xllentretailers.com"&&password==="super123";if(superAdmin){setLoggedInRole("Super Administrator");setLoginError("");}else setLoginError("Invalid Super Admin credentials. Please check your email and password.")};
+  const logout=()=>{setLoggedInRole(null);setProfileMenu(false);setSection("Dashboard")};
+  if(!loggedInRole) return <SuperAdminLoginPage loginError={loginError} onLogin={login}/>;
+  return <main className="min-h-screen bg-[#f5f6f8] font-sans text-slate-700">
+    <Seo title="Super Admin Dashboard" description="Xllent Retailers operations dashboard" path="/super-admin"/>
+    <aside className={`fixed inset-y-0 left-0 z-40 w-[250px] border-r border-white/10 bg-[#17243c] text-white transition-transform lg:translate-x-0 ${mobile?"translate-x-0":"-translate-x-full"}`}>
+      <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6"><div className="grid h-10 w-10 place-items-center rounded-xl bg-white"><img src={brand.logo} className="h-8 w-8 object-contain"/></div><div><div className="text-lg font-black tracking-wide">XLLENT</div><div className="text-[10px] font-bold uppercase tracking-[.18em] text-orange-300">Super Admin</div></div><button className="ml-auto lg:hidden" onClick={()=>setMobile(false)}><X/></button></div>
+      <nav className="space-y-1 p-3">{nav.map(({label,icon:Icon})=><button key={label} onClick={()=>select(label)} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${section===label?"bg-[#e76538] text-white shadow-lg shadow-orange-950/20":"text-slate-300 hover:bg-white/10 hover:text-white"}`}><Icon className="h-[18px] w-[18px]"/>{label}{label==="Notifications"&&<span className="ml-auto rounded-full bg-red-500 px-2 text-[10px]">6</span>}</button>)}</nav>
+      <button onClick={logout} className="absolute bottom-5 left-3 right-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10"><LogOut className="h-[18px]"/>Logout</button>
+    </aside>
+    <div className="lg:pl-[250px]">
+      <header className="sticky top-0 z-30 flex h-20 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur md:px-8"><button className="mr-3 rounded-lg p-2 lg:hidden" onClick={()=>setMobile(true)}><Menu/></button><div><h1 className="font-sans text-xl font-extrabold md:text-2xl">{section}</h1><p className="hidden text-xs text-slate-400 sm:block">Welcome back, manage your distribution network.</p></div><div className="ml-auto flex items-center gap-3"><button onClick={()=>select("Notifications")} className="relative rounded-xl border border-slate-200 p-2.5"><Bell className="h-5 w-5"/><i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500"/></button><div className="hidden h-9 w-px bg-slate-200 sm:block"/><div className="relative"><button aria-expanded={profileMenu} aria-haspopup="menu" onClick={()=>setProfileMenu(v=>!v)} className="flex items-center gap-3 rounded-xl p-1.5 text-left hover:bg-slate-50"><div className="hidden text-right sm:block"><div className="text-sm font-bold text-slate-900">Piyush Admin</div><div className="text-[11px] text-slate-400">{loggedInRole}</div></div><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#fff0e9] font-black text-[#d9582e]">PA</div><ChevronDown className={`h-4 w-4 transition ${profileMenu?"rotate-180":""}`}/></button>{profileMenu&&<div role="menu" className="absolute right-0 top-14 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"><button role="menuitem" onClick={()=>{select("Profile");setProfileMenu(false)}} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-slate-50"><UserRound className="h-4"/>My Profile</button><button role="menuitem" onClick={()=>{select("Settings");setProfileMenu(false)}} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-slate-50"><Settings className="h-4"/>Settings</button><div className="my-1 border-t"/><button role="menuitem" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"><LogOut className="h-4"/>Logout</button></div>}</div></div></header>
+      <section className="p-4 md:p-8">
+        {section==="Dashboard"&&<DashboardSection><Dashboard revenue={revenue} products={productRows} accountCount={accounts.length}/></DashboardSection>}
+        {section==="User Management"&&<UserManagementSection><UsersPage tab={userTab} setTab={setUserTab} show={showUserForm} setShow={setShowUserForm}/></UserManagementSection>}
+        {section==="Products"&&<ProductsSection><ProductsPage products={productRows} show={showProductForm} setShow={setShowProductForm}/></ProductsSection>}
+        {section==="Categories"&&<CategoriesSection><CategoriesPage/></CategoriesSection>}
+        {section==="Orders"&&<OrdersSection><OrdersPage tab={orderTab} setTab={setOrderTab}/></OrdersSection>}
+        {section==="Inventory"&&<InventorySection><InventoryPage products={productRows}/></InventorySection>}
+        {section==="Revenue"&&<RevenueSection><RevenuePage/></RevenueSection>}
+        {section==="Reports"&&<ReportsSection><ReportsPage/></ReportsSection>}
+        {section==="Notifications"&&<NotificationsSection><NotificationsPage/></NotificationsSection>}
+        {section==="Settings"&&<SettingsSection><SettingsPage profile={false}/></SettingsSection>}
+        {section==="Profile"&&<ProfileSection><SettingsPage profile/></ProfileSection>}
+      </section>
+    </div>
+  </main>
 }
 
-export function SuperAdminPage({ navigate }: SuperAdminPageProps) {
-  const [isSuperAdminLoggedIn, setIsSuperAdminLoggedIn] = useState(false);
-  const [loginError, setLoginError] = useState("");
-  const [activePage, setActivePage] = useState<SuperAdminPageKey>("Dashboard");
-  const [query, setQuery] = useState("");
-  const [accounts, setAccounts] = useState<Account[]>(() => loadAccounts());
-  const [products, setProducts] = useState<Product[]>(() => loadManagedProducts());
-  const [orders, setOrders] = useState<CustomerOrder[]>(() => loadOrders());
-  const [form, setForm] = useState<ProductForm>(emptyProductForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+function Dashboard({revenue,products,accountCount}:{revenue:number;products:any[];accountCount:number}) { return <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi icon={CircleDollarSign} label="Total Revenue" value={formatCurrency(revenue)} note="↑ 12.5% from last month" tint="bg-orange-50 text-orange-600"/><Kpi icon={ClipboardList} label="Total Orders" value="1,284" note="↑ 8.2% from last month" tint="bg-blue-50 text-blue-600"/><Kpi icon={Package} label="Pending Orders" value="48" note="12 require approval" tint="bg-amber-50 text-amber-600"/><Kpi icon={PackageCheck} label="Completed Orders" value="1,106" note="86.1% fulfilment rate" tint="bg-emerald-50 text-emerald-600"/><Kpi icon={ShoppingBag} label="Products" value={String(products.length+124)} note="8 low stock items" tint="bg-violet-50 text-violet-600"/><Kpi icon={Warehouse} label="Inventory Value" value="₹24.8L" note="Across 6 categories" tint="bg-cyan-50 text-cyan-600"/><Kpi icon={ShieldCheck} label="Super Stockists" value={String(accountCount+18)} note="Across 12 regions" tint="bg-rose-50 text-rose-600"/><Kpi icon={Truck} label="Distributors / Wholesale" value="142" note="9 added this month" tint="bg-slate-100 text-slate-600"/></div><div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]"><div className="admin-card p-6"><div className="flex justify-between"><div><h2 className="admin-title">Monthly Sales</h2><p className="text-sm text-slate-400">Revenue growth over the current year</p></div><select className="admin-select"><option>2026</option></select></div><AreaChart/></div><div className="admin-card p-6"><h2 className="admin-title">Category Wise Sales</h2><p className="text-sm text-slate-400">Contribution by product category</p><Donut/><div className="mt-6 grid grid-cols-2 gap-2 text-xs"><span>🟠 Edible Oil 38%</span><span>🟢 Snacks 28%</span><span>🟡 Chocolate 18%</span><span>⚫ Others 16%</span></div></div></div><div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]"><OrdersTable/><UsersTable/></div></div> }
+function OrdersTable(){return <div className="admin-card"><div className="admin-card-head"><div><h2 className="admin-title">Latest Orders</h2><p className="text-sm text-slate-400">Recent activity across your network</p></div><button className="admin-link">View all</button></div><TableShell><table className="admin-table"><thead><tr>{["Order ID","Customer","Role","Amount","Status","Date","Action"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{demoOrders.map(o=><tr key={o.id}><td className="font-bold text-slate-900">{o.id}</td><td>{o.customer}</td><td>{o.role}</td><td className="font-bold">{formatCurrency(o.amount)}</td><td><Status value={o.status}/></td><td>{o.date}</td><td><Eye className="h-4 w-4"/></td></tr>)}</tbody></table></TableShell></div>}
+function UsersTable(){return <div className="admin-card"><div className="admin-card-head"><div><h2 className="admin-title">Latest Users</h2><p className="text-sm text-slate-400">Recently added accounts</p></div><button className="admin-link">View all</button></div><div className="divide-y divide-slate-100">{demoUsers.map((u,i)=><div className="flex items-center gap-3 p-4" key={u.name}><div className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 font-bold text-slate-600">{u.name.split(" ").map(x=>x[0]).join("")}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-slate-900">{u.name}</div><div className="text-xs text-slate-400">{u.role} · {u.region}</div></div><Status value={u.status}/></div>)}</div></div>}
 
-  useEffect(() => {
-    const refreshAccounts = () => setAccounts(loadAccounts());
-    const refreshOrders = () => setOrders(loadOrders());
-    window.addEventListener(accountStoreEventName(), refreshAccounts);
-    window.addEventListener(orderStoreEventName(), refreshOrders);
-    window.addEventListener("storage", refreshAccounts);
-    window.addEventListener("storage", refreshOrders);
-    return () => {
-      window.removeEventListener(accountStoreEventName(), refreshAccounts);
-      window.removeEventListener(orderStoreEventName(), refreshOrders);
-      window.removeEventListener("storage", refreshAccounts);
-      window.removeEventListener("storage", refreshOrders);
-    };
-  }, []);
-
-  const handleLogin = (email: string, password: string) => {
-    if (email === superAdminCredentials.email && password === superAdminCredentials.password) {
-      setIsSuperAdminLoggedIn(true);
-      setLoginError("");
-      return;
-    }
-
-    setLoginError("Invalid super admin email or password.");
-  };
-
-  const updateForm = (key: keyof ProductForm, value: string) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const persistProducts = (nextProducts: Product[]) => {
-    setProducts(nextProducts);
-    saveManagedProducts(nextProducts);
-  };
-
-  const resetForm = () => {
-    setForm(emptyProductForm);
-    setEditingId(null);
-  };
-
-  const submitProduct = () => {
-    const slug = slugify(form.name);
-    const wholesalerPrice = Number(form.wholesalerPrice || 0);
-    const product: Product = {
-      id: editingId ?? slug,
-      name: form.name,
-      slug,
-      category: form.category,
-      brand: "Xllent",
-      mrp: Number(form.mrp || 0),
-      price: wholesalerPrice,
-      adminPrice: Number(form.adminPrice || 0),
-      superStockiestPrice: Number(form.superStockiestPrice || 0),
-      distributorsPrice: Number(form.distributorsPrice || 0),
-      wholesalerPrice,
-      stock: editingId ? products.find((item) => item.id === editingId)?.stock ?? 0 : 0,
-      shortDescription: form.description.slice(0, 120),
-      description: form.description,
-      imageUrl:
-        form.imageUrl ||
-        "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=900&q=80",
-      colorClass: "from-gold-secondary/20 to-harvest-cream",
-      highlights: [form.category, "Xllent", "Retail ready"].filter(Boolean),
-      bestFor: ["Customer orders", "Retail shelves", "Wholesale supply"]
-    };
-
-    persistProducts(
-      editingId
-        ? products.map((item) => (item.id === editingId ? product : item))
-        : [product, ...products]
-    );
-    resetForm();
-  };
-
-  const editProduct = (product: Product) => {
-    setEditingId(product.id);
-    setForm({
-      name: product.name,
-      category: product.category,
-      mrp: String(product.mrp ?? product.price),
-      adminPrice: String(product.adminPrice ?? product.price),
-      superStockiestPrice: String(product.superStockiestPrice ?? product.price),
-      distributorsPrice: String(product.distributorsPrice ?? product.price),
-      wholesalerPrice: String(product.wholesalerPrice ?? product.price),
-      imageUrl: product.imageUrl,
-      description: product.description
-    });
-    setActivePage("Products");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const deleteProduct = (productId: string) => {
-    persistProducts(products.filter((product) => product.id !== productId));
-    if (editingId === productId) {
-      resetForm();
-    }
-  };
-
-  const handleStatusChange = (orderId: string, status: OrderStatus) => {
-    setOrders(updateOrderStatus(orderId, status));
-  };
-
-  if (!isSuperAdminLoggedIn) {
-    return <SuperAdminLoginPage loginError={loginError} onLogin={handleLogin} />;
-  }
-
-  return (
-    <main className="min-h-screen bg-[#f7f9f2] text-surface-black">
-      <Seo
-        description="Xllent Retailers super admin panel for dashboard, products, orders, invoices, and customers."
-        path="/super-admin"
-        title="Super Admin Panel"
-      />
-      <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
-        <aside className="border-b border-surface-border bg-surface-white p-4 lg:border-b-0 lg:border-r">
-          <button className="mb-6 flex items-center gap-3 text-left" onClick={() => navigate("/home")} type="button">
-            <img alt={`${brand.name} logo`} className="h-12 w-12 object-contain" src={brand.logo} />
-            <div>
-              <div className="text-lg font-bold">{brand.name}</div>
-              <div className="text-sm text-surface-muted">Super Admin workspace</div>
-            </div>
-          </button>
-          <nav className="grid gap-1">
-            {superAdminModules.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  className={cn(
-                    "flex h-11 items-center gap-3 rounded-component px-3 text-left text-sm font-semibold transition",
-                    activePage === item.label
-                      ? "bg-surface-black text-surface-white"
-                      : "text-surface-muted hover:bg-[#edf4e4] hover:text-surface-black"
-                  )}
-                  key={item.label}
-                  onClick={() => setActivePage(item.label)}
-                  type="button"
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <section className="p-5 md:p-8">
-          <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-harvest-olive">
-                {brand.name}
-              </p>
-              <h1 className="mt-2">{activePage}</h1>
-            </div>
-            <Button className="gap-2" onClick={() => navigate("/")} variant="outline">
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
-
-          {activePage === "Dashboard" ? (
-            <SuperAdminDashboardPage
-              orders={orders}
-              productCount={products.length}
-              userCount={accounts.length}
-            />
-          ) : null}
-
-          {activePage === "Users" ? <SuperAdminUsersPage accounts={accounts} /> : null}
-
-          {activePage === "Products" ? (
-            <SuperAdminProductsPage
-              editingId={editingId}
-              form={form}
-              onDeleteProduct={deleteProduct}
-              onEditProduct={editProduct}
-              onQueryChange={setQuery}
-              onResetForm={resetForm}
-              onSubmitProduct={submitProduct}
-              onUpdateForm={updateForm}
-              products={products}
-              query={query}
-            />
-          ) : null}
-
-          {activePage === "Orders" ? (
-            <SuperAdminOrdersPage
-              onSelectInvoice={setSelectedInvoiceId}
-              onStatusChange={handleStatusChange}
-              orders={orders}
-              selectedInvoiceId={selectedInvoiceId}
-            />
-          ) : null}
-
-        </section>
-      </div>
-    </main>
-  );
-}
+function PageBar({title,subtitle,action,onClick}:{title:string;subtitle:string;action?:string;onClick?:()=>void}){return <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="text-xl font-extrabold text-slate-900">{title}</h2><p className="text-sm text-slate-400">{subtitle}</p></div>{action&&<button className="admin-primary" onClick={onClick}><Plus className="h-4 w-4"/>{action}</button>}</div>}
+function UsersPage({tab,setTab,show,setShow}:{tab:string;setTab:(v:string)=>void;show:boolean;setShow:(v:boolean)=>void}){const tabs=["All","Admin","Super Stockist","Distributor","Wholesaler"];const visibleUsers=tab==="All"?demoUsers:demoUsers.filter(user=>user.role===tab);return <><PageBar title="User Management" subtitle="Manage access, roles and distribution hierarchy" action="Add User" onClick={()=>setShow(true)}/>{show&&<UserForm close={()=>setShow(false)}/>}<div className="admin-card"><div className="border-b p-4"><div className="flex flex-wrap gap-2">{tabs.map(t=><button onClick={()=>setTab(t)} className={`admin-tab ${tab===t?"admin-tab-active":""}`} key={t}>{t}<span className="ml-1 opacity-60">({t==="All"?demoUsers.length:demoUsers.filter(u=>u.role===t).length})</span></button>)}</div><div className="mt-4 flex gap-3"><div className="admin-search"><Search/><input placeholder="Search name, mobile or email"/></div><select className="admin-select"><option>All Regions</option><option>Gujarat</option><option>Maharashtra</option><option>Rajasthan</option></select></div></div><TableShell><table className="admin-table"><thead><tr>{["Photo","Name","Role","Mobile","Email","Region","Parent","Status","Actions"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{visibleUsers.map(u=><tr key={u.name}><td><div className="avatar">{u.name.split(" ").map(part=>part[0]).join("")}</div></td><td className="font-bold text-slate-900">{u.name}<div className="text-xs font-normal text-slate-400">Joined {u.date}</div></td><td><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{u.role}</span></td><td>{u.mobile}</td><td>{u.email}</td><td>{u.region}</td><td>{u.parent}</td><td><Status value={u.status}/></td><td><div className="flex gap-2"><Eye className="action-icon"/><Pencil className="action-icon"/><Trash2 className="action-icon text-red-500"/></div></td></tr>)}</tbody></table></TableShell></div></>}
+function UserForm({close}:{close:()=>void}){const fields=["Full Name","Mobile","Email","Password","State","District","City","Address","Pin Code","GST","PAN","Aadhaar","Parent User","Status"];return <div className="admin-card mb-6 p-6"><div className="mb-5 flex justify-between"><h3 className="admin-title">Create User</h3><button onClick={close}><X/></button></div><div className="mb-4 flex items-center gap-4"><div className="grid h-16 w-16 place-items-center rounded-full bg-slate-100"><UserRound/></div><button className="admin-secondary">Upload Photo</button></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{fields.map(f=><label className="admin-field" key={f}>{f}<input placeholder={`Enter ${f.toLowerCase()}`}/></label>)}</div><div className="mt-6 flex gap-3"><button className="admin-primary" onClick={close}><Check className="h-4"/>Save User</button><button className="admin-secondary" onClick={close}>Cancel</button></div></div>}
+function ProductsPage({products,show,setShow}:{products:any[];show:boolean;setShow:(v:boolean)=>void}){return <><PageBar title="Product Management" subtitle="Manage product catalog, pricing and availability" action="Add Product" onClick={()=>setShow(true)}/>{show&&<ProductForm close={()=>setShow(false)}/>}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi icon={ShoppingBag} label="Total Products" value="127" note="6 categories" tint="bg-blue-50 text-blue-600"/><Kpi icon={Check} label="Active Products" value="112" note="88% of catalog" tint="bg-green-50 text-green-600"/><Kpi icon={X} label="Inactive Products" value="15" note="Review required" tint="bg-slate-100 text-slate-600"/><Kpi icon={Warehouse} label="Low Stock" value="8" note="Restock soon" tint="bg-red-50 text-red-600"/></div><div className="admin-card mt-6"><div className="p-4"><div className="admin-search max-w-md"><Search/><input placeholder="Search products..."/></div></div><TableShell><table className="admin-table"><thead><tr>{["Image","Product Name","Category","MRP","Super Stockist","Distributor","Wholesaler","Stock","Status","Actions"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{products.slice(0,8).map((p:any)=><tr key={p.id}><td><img src={p.imageUrl} className="h-10 w-10 rounded-lg object-contain"/></td><td className="font-bold text-slate-900">{p.name}</td><td>{p.category}</td><td>{formatCurrency(p.mrp||p.price)}</td><td>{formatCurrency(p.superStockiestPrice||p.price)}</td><td>{formatCurrency(p.distributorsPrice||p.price)}</td><td>{formatCurrency(p.wholesalerPrice||p.price)}</td><td className="font-bold">{p.stock||0}</td><td><Status value={(p.stock||0)>0?"Active":"Out of Stock"}/></td><td><Actions/></td></tr>)}</tbody></table></TableShell></div></>}
+function ProductForm({close}:{close:()=>void}){const sections=[{name:"General",fields:["Product Name","SKU","Barcode","Category","Brand","Weight","Unit","Description"]},{name:"Pricing",fields:["MRP","Super Stockist Price","Distributor Price","Wholesaler Price","GST"]},{name:"Inventory",fields:["Opening Stock","Minimum Stock","Maximum Stock"]}];return <div className="admin-card mb-6 p-6"><div className="flex justify-between"><h3 className="admin-title">Add Product</h3><button onClick={close}><X/></button></div>{sections.map(s=><div className="mt-6" key={s.name}><h4 className="mb-3 border-b pb-2 text-sm font-extrabold uppercase tracking-wider text-[#d9582e]">{s.name}</h4><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{s.fields.map(f=><label className="admin-field" key={f}>{f}<input placeholder={f}/></label>)}</div></div>)}<div className="mt-6"><h4 className="mb-3 text-sm font-extrabold uppercase text-[#d9582e]">Images</h4><div className="grid gap-3 sm:grid-cols-2"><button className="upload-box">+ Main Image</button><button className="upload-box">+ Gallery Images</button></div></div><div className="mt-6 flex gap-3"><button className="admin-secondary">Save Draft</button><button className="admin-primary" onClick={close}>Publish Product</button></div></div>}
+function OrdersPage({tab,setTab}:{tab:string;setTab:(v:string)=>void}){const tabs=["Pending","Approved","Packed","Dispatched","Delivered","Cancelled"];return <><PageBar title="Orders" subtitle="Track and fulfil orders across every stage"/><div className="admin-card"><div className="flex flex-wrap gap-2 border-b p-4">{tabs.map(t=><button onClick={()=>setTab(t)} className={`admin-tab ${tab===t?"admin-tab-active":""}`} key={t}>{t}<span className="ml-1 opacity-60">({t==="Pending"?12:8})</span></button>)}</div><TableShell><table className="admin-table"><thead><tr>{["Order ID","Customer","Role","Amount","Status","Date","Action"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{demoOrders.map(o=><tr key={o.id}><td className="font-bold text-[#d9582e]">{o.id}</td><td>{o.customer}</td><td>{o.role}</td><td className="font-bold">{formatCurrency(o.amount)}</td><td><Status value={o.status}/></td><td>{o.date}</td><td><button className="admin-secondary !px-3 !py-1.5"><Eye className="h-4"/>Details</button></td></tr>)}</tbody></table></TableShell></div><div className="admin-card mt-6 p-6"><h3 className="admin-title">Order Details · #XLR-1048</h3><div className="mt-5 grid gap-6 lg:grid-cols-[1.4fr_1fr]"><div className="grid gap-4 sm:grid-cols-2">{["Customer","Products","Quantity","Pricing","Payment","Delivery","Notes"].map(x=><div className="rounded-xl bg-slate-50 p-4" key={x}><div className="text-xs font-bold uppercase text-slate-400">{x}</div><div className="mt-1 text-sm font-semibold">{x==="Customer"?"Patel Wholesale · Ahmedabad":x==="Pricing"?"₹48,620 incl. GST":x==="Quantity"?"24 cases":"Verified order information"}</div></div>)}</div><div><h4 className="font-bold text-slate-900">Order Timeline</h4><div className="timeline mt-4">{["Placed","Approved","Payment","Packing","Ready","Dispatched","Delivered"].map((x,i)=><div className={i<2?"done":""} key={x}><i>{i<2?"✓":i+1}</i><span>{x}</span></div>)}</div></div></div><div className="mt-6 flex flex-wrap gap-2"><button className="admin-primary">Approve</button><button className="admin-secondary">Reject</button><button className="admin-secondary">Dispatch</button><button className="admin-secondary"><Download className="h-4"/>Print Invoice</button></div></div></>}
+function InventoryPage({products}:{products:any[]}){return <><PageBar title="Inventory" subtitle="Real-time stock levels and replenishment alerts"/><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi icon={Warehouse} label="Available Stock" value="18,420" note="Units ready to sell" tint="bg-emerald-50 text-emerald-600"/><Kpi icon={Package} label="Reserved" value="1,284" note="For open orders" tint="bg-blue-50 text-blue-600"/><Kpi icon={Bell} label="Low Stock" value="8" note="Below minimum level" tint="bg-amber-50 text-amber-600"/><Kpi icon={X} label="Out of Stock" value="3" note="Immediate action" tint="bg-red-50 text-red-600"/></div><div className="admin-card mt-6"><TableShell><table className="admin-table"><thead><tr>{["Product","Category","Current Stock","Minimum","Maximum","Status","Action"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{products.map((p:any)=><tr key={p.id}><td className="font-bold">{p.name}</td><td>{p.category}</td><td>{p.stock||0}</td><td>20</td><td>500</td><td><Status value={(p.stock||0)<20?"Low Stock":"Active"}/></td><td><button className="admin-link">Adjust</button></td></tr>)}</tbody></table></TableShell></div></>}
+function CategoriesPage(){return <><PageBar title="Categories" subtitle="Organize the product catalog" action="Add Category"/><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{["Edible Oils","Chocolate","Snacks","Spices","Candy","Chikki"].map((x,i)=><div className="admin-card flex items-center gap-4 p-5"><div className="grid h-12 w-12 place-items-center rounded-xl bg-orange-50 text-orange-600"><Boxes/></div><div className="flex-1"><div className="font-bold text-slate-900">{x}</div><div className="text-sm text-slate-400">{12+i*4} products</div></div><Actions/></div>)}</div></>}
+function RevenuePage(){return <><PageBar title="Revenue" subtitle="Financial performance and payout overview" action="Export Report"/><div className="grid gap-4 md:grid-cols-3"><Kpi icon={CircleDollarSign} label="Gross Revenue" value="₹84.26L" note="↑ 12.5% year to date" tint="bg-orange-50 text-orange-600"/><Kpi icon={ChartNoAxesCombined} label="Net Revenue" value="₹72.40L" note="After tax and discounts" tint="bg-green-50 text-green-600"/><Kpi icon={ClipboardList} label="Outstanding" value="₹6.18L" note="24 pending invoices" tint="bg-blue-50 text-blue-600"/></div><div className="admin-card mt-6 p-6"><h3 className="admin-title">Revenue Growth</h3><AreaChart/></div></>}
+function ReportsPage(){return <><PageBar title="Reports" subtitle="Download detailed business intelligence"/><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{["Sales Report","Order Report","Inventory Report","User Performance","GST Summary","Revenue Analysis"].map(x=><button className="admin-card flex items-center gap-4 p-5 text-left hover:border-orange-300"><FileChartColumn className="text-[#e76538]"/><div className="flex-1"><div className="font-bold text-slate-900">{x}</div><div className="text-sm text-slate-400">Updated today</div></div><Download className="h-4"/></button>)}</div></>}
+function NotificationsPage(){return <><PageBar title="Notifications" subtitle="Stay on top of important operational events"/><div className="admin-card"><div className="flex gap-2 border-b p-4">{["Recent","Unread","Important"].map((x,i)=><button className={`admin-tab ${i===0?"admin-tab-active":""}`}>{x}</button>)}</div>{["8 products are running low on stock","Order #XLR-1048 needs your approval","New distributor application received","Monthly revenue report is ready"].map((x,i)=><div className="flex gap-4 border-b border-slate-100 p-5"><div className={`mt-1 h-2.5 w-2.5 rounded-full ${i<2?"bg-orange-500":"bg-slate-300"}`}/><div className="flex-1"><div className="font-bold text-slate-900">{x}</div><div className="text-sm text-slate-400">{i+1} hour ago</div></div></div>)}</div></>}
+function SettingsPage({profile}:{profile:boolean}){const fields=profile?["Full Name","Email Address","Mobile"]:["Company Name","Support Email","Support Mobile","Default GST","Currency","Timezone"];return <><PageBar title={profile?"My Profile":"Settings"} subtitle={profile?"Manage your account details":"Configure organization and dashboard preferences"}/><div className="admin-card max-w-3xl p-6"><div className="grid gap-4 md:grid-cols-2">{fields.map(x=><label className="admin-field" key={x}>{x}<input defaultValue={x==="Company Name"?"Xllent Retailers":x==="Full Name"?"Piyush Admin":""}/></label>)}{profile&&<label className="admin-field">Role<select className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-[#e76538] focus:ring-2 focus:ring-orange-100" defaultValue="Super Admin"><option>Super Admin</option><option>Admin</option><option>Super Stockist</option><option>Wholesaler</option></select></label>}</div><button className="admin-primary mt-6">Save Changes</button></div></>}

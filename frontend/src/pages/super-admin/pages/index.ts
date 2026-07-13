@@ -1,0 +1,11 @@
+export { DashboardPage } from "./DashboardPage";
+export { UserManagementPage } from "./UserManagementPage";
+export { ProductsPage } from "./ProductsPage";
+export { CategoriesPage } from "./CategoriesPage";
+export { OrdersPage } from "./OrdersPage";
+export { InventoryPage } from "./InventoryPage";
+export { RevenuePage } from "./RevenuePage";
+export { ReportsPage } from "./ReportsPage";
+export { NotificationsPage } from "./NotificationsPage";
+export { SettingsPage } from "./SettingsPage";
+export { ProfilePage } from "./ProfilePage";
